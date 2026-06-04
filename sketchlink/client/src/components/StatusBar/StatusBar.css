@@ -1,0 +1,25 @@
+.status-bar {
+  height: 26px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  gap: 14px;
+  font-size: 10.5px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+.sb-item { display: flex; align-items: center; gap: 4px; }
+
+.sb-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+.sb-spacer { flex: 1; }

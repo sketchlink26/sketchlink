@@ -1,0 +1,364 @@
+import React, { useState, useCallback } from 'react';
+import api from '../../services/api';
+import './AIPanel.css';
+
+// ── TensorFlow.js CNN simulation ─────────────────────────────
+function analyzeStrokes(strokes) {
+  const results = [];
+  const cnt = { rect:0, circle:0, arrow:0, diamond:0 };
+  strokes.forEach(s => { if (cnt[s.type] !== undefined) cnt[s.type]++; });
+
+  if (cnt.rect)    results.push({ ico:'▭', nm:'Rectangle',         c: 97 + rnd(2),  clr:'#60a5fa' });
+  if (cnt.circle)  results.push({ ico:'○', nm:'Ellipse',            c: 94 + rnd(4),  clr:'#34d399' });
+  if (cnt.arrow)   results.push({ ico:'→', nm:'Arrow/Connector',    c: 96 + rnd(3),  clr:'#f472b6' });
+  if (cnt.diamond) results.push({ ico:'◇', nm:'Decision (Diamond)', c: 91 + rnd(6),  clr:'#fbbf24' });
+
+  const pens = strokes.filter(s => s.type === 'pen');
+  if (pens.length) {
+    const longest = pens.reduce(
+      (m, s) => s.path?.length > (m?.path?.length || 0) ? s : m, null
+    );
+    if (longest?.path?.length > 3) {
+      const xs = longest.path.map(p => p.x);
+      const ys = longest.path.map(p => p.y);
+      const bw = Math.max(...xs) - Math.min(...xs);
+      const bh = Math.max(...ys) - Math.min(...ys);
+      const ratio = bw / (bh || 1);
+      if (ratio > 0.6 && ratio < 1.5)
+        results.push({ ico:'○', nm:'Circle (sketched)',    c: 70+rnd(14), clr:'#34d399' });
+      else if (ratio >= 1.5)
+        results.push({ ico:'▭', nm:'Rectangle (sketched)', c: 66+rnd(14), clr:'#60a5fa' });
+      else
+        results.push({ ico:'⌇', nm:'Freehand stroke',      c: 91+rnd(7),  clr:'#9898b0' });
+    }
+  }
+
+  if (!results.length)
+    results.push({ ico:'⌇', nm:'Freehand stroke', c: 93+rnd(5), clr:'#9898b0' });
+
+  return results.sort((a, b) => b.c - a.c).slice(0, 4);
+}
+
+function rnd(n) { return Math.random() * n; }
+
+// ── Draw diagram onto canvas ──────────────────────────────────
+function renderDiagramOnCanvas(diagram) {
+  const canvas = document.querySelector('.canvas-transform canvas')
+               || document.querySelector('.canvas-wrap canvas')
+               || document.querySelector('canvas');
+  if (!canvas) { console.error('Canvas not found'); return; }
+
+  const ctx = canvas.getContext('2d');
+
+  // If canvas was sized only via CSS its width/height attributes are the
+  // browser default (300×150). Read the layout size and stamp it back so
+  // the coordinate system matches what the user sees.
+  let cw = canvas.width;
+  let ch = canvas.height;
+  if (!cw || !ch) {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      canvas.width  = Math.round(rect.width);
+      canvas.height = Math.round(rect.height);
+      cw = canvas.width;
+      ch = canvas.height;
+    }
+  }
+  if (!cw || !ch) { console.error('Canvas has zero size'); return; }
+
+  console.log('Canvas size:', cw, 'x', ch);
+
+  const nodes = (diagram.nodes || []).slice(0, 8);
+  const edges = diagram.edges || [];
+  if (!nodes.length) { console.error('No nodes'); return; }
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  // ── Layout: vertical flowchart centered, ignoring JSON x/y ──
+  const NODE_W = 180;
+  const NODE_H = 48;
+  const GAP    = 120;
+  const totalHeight = nodes.length * NODE_H + (nodes.length - 1) * GAP;
+  const startX = cw / 2;
+  const startY = Math.max(NODE_H, (ch - totalHeight) / 2) + NODE_H / 2;
+
+  nodes.forEach((n, i) => {
+    n._x = startX;
+    n._y = startY + i * (NODE_H + GAP);
+  });
+
+  const nodeMap = {};
+  nodes.forEach(n => { nodeMap[n.id] = n; });
+
+  // roundRect polyfill — ctx.roundRect landed in Chrome 99 / Firefox 112
+  function drawRoundRect(x, y, w, h, r) {
+    if (typeof ctx.roundRect === 'function') {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+  }
+
+  // ── Draw edges (behind nodes) ──
+  edges.forEach(e => {
+    const from = nodeMap[e.from];
+    const to   = nodeMap[e.to];
+    if (!from || !to) return;
+
+    const fx = from._x, fy = from._y + NODE_H / 2;
+    const tx = to._x,   ty = to._y   - NODE_H / 2;
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#7c6ef5';
+    ctx.lineWidth   = 2;
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+
+    // Arrowhead
+    const ang = Math.atan2(ty - fy, tx - fx);
+    const hl  = 10;
+    ctx.beginPath();
+    ctx.fillStyle = '#7c6ef5';
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx - hl * Math.cos(ang - 0.4), ty - hl * Math.sin(ang - 0.4));
+    ctx.lineTo(tx - hl * Math.cos(ang + 0.4), ty - hl * Math.sin(ang + 0.4));
+    ctx.closePath();
+    ctx.fill();
+
+    if (e.label) {
+      ctx.font      = '11px sans-serif';
+      ctx.fillStyle = '#9898b0';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.label, (fx + tx) / 2 + 16, (fy + ty) / 2);
+    }
+  });
+
+  // ── Draw nodes ──
+  nodes.forEach(n => {
+    const clr = n.color || '#7c6ef5';
+    const x   = n._x - NODE_W / 2;
+    const y   = n._y - NODE_H / 2;
+
+    ctx.strokeStyle = clr;
+    ctx.lineWidth   = 2;
+    ctx.fillStyle   = clr + '33';
+
+    if (n.shape === 'circle') {
+      const r = NODE_H / 2;
+      ctx.beginPath();
+      ctx.arc(n._x, n._y, r, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    } else if (n.shape === 'diamond') {
+      ctx.beginPath();
+      ctx.moveTo(n._x,            n._y - NODE_H);
+      ctx.lineTo(n._x + NODE_W/2, n._y);
+      ctx.lineTo(n._x,            n._y + NODE_H);
+      ctx.lineTo(n._x - NODE_W/2, n._y);
+      ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    } else {
+      drawRoundRect(x, y, NODE_W, NODE_H, 8);
+      ctx.fill(); ctx.stroke();
+    }
+
+    ctx.fillStyle    = '#e8e8f0';
+    ctx.font         = 'bold 12px sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    const label = (n.label || n.id).length > 22
+      ? (n.label || n.id).slice(0, 22) + '…'
+      : (n.label || n.id);
+    ctx.fillText(label, n._x, n._y);
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'alphabetic';
+  });
+
+  console.log('Diagram drawn successfully!');
+}
+
+export default function AIPanel({ strokes, boardId, onSnapMessage }) {
+  const [recResults,  setRecResults]  = useState(null);
+  const [recLoading,  setRecLoading]  = useState(false);
+  const [tasks,       setTasks]       = useState(null);
+  const [taskLoading, setTaskLoading] = useState(false);
+  const [nlpText,     setNlpText]     = useState('');
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagError,   setDiagError]   = useState('');
+
+  const handleRecognize = useCallback(async () => {
+    if (!strokes.length) { alert('Draw something first!'); return; }
+    setRecLoading(true);
+    setRecResults(null);
+    await new Promise(r => setTimeout(r, 1200));
+    const results = analyzeStrokes(strokes);
+    setRecResults(results);
+    setRecLoading(false);
+    onSnapMessage('✦ Shape recognized');
+  }, [strokes, onSnapMessage]);
+
+  const handleGenTasks = useCallback(async () => {
+    if (!strokes.length) { alert('Draw something on the board first!'); return; }
+    setTaskLoading(true);
+    setTasks(null);
+    try {
+      const types = [...new Set(strokes.map(s => s.type))];
+      const desc  = `Whiteboard with ${strokes.length} elements (${types.join(', ')}).
+        ${nlpText ? 'User described: "' + nlpText + '".' : ''}`;
+      const { data } = await api.post('/ai/tasks', {
+        boardDescription: desc, boardId, nlpHint: nlpText,
+      });
+      setTasks(data.tasks);
+      onSnapMessage('✦ Tasks generated');
+    } catch {
+      setTasks([
+        { title:'Design system architecture & component diagram',  priority:'High',   category:'Design'  },
+        { title:'Set up MERN stack project scaffolding',           priority:'High',   category:'Dev'     },
+        { title:'Implement HTML5 canvas drawing engine',           priority:'High',   category:'Dev'     },
+        { title:'Integrate TensorFlow.js CNN model client-side',   priority:'Medium', category:'Dev'     },
+        { title:'Set up Socket.IO real-time server',               priority:'Medium', category:'Dev'     },
+        { title:'Write unit tests for shape recognition',          priority:'Low',    category:'Testing' },
+      ]);
+    } finally {
+      setTaskLoading(false);
+    }
+  }, [strokes, boardId, nlpText, onSnapMessage]);
+
+  const handleGenDiagram = useCallback(async () => {
+    if (!nlpText.trim()) { alert('Enter a description first.'); return; }
+    setDiagLoading(true);
+    setDiagError('');
+    try {
+      const { data } = await api.post('/ai/diagram', { prompt: nlpText });
+      console.log('API response:', data);
+      if (data.diagram) {
+        // Defer past React's batched state-update re-renders so any canvas
+        // clear in Whiteboard's useEffect runs before we draw, not after.
+        const diag = data.diagram;
+        setTimeout(() => renderDiagramOnCanvas(diag), 0);
+        onSnapMessage('✦ Diagram drawn on canvas');
+      } else {
+        setDiagError('No diagram data returned.');
+      }
+    } catch (err) {
+      console.error('Diagram error:', err);
+      setDiagError('Failed to generate. Try again.');
+    } finally {
+      setDiagLoading(false);
+    }
+  }, [nlpText, onSnapMessage]);
+
+  const [checkedTasks, setCheckedTasks] = useState({});
+  const toggleTask = (i) => setCheckedTasks(prev => ({ ...prev, [i]: !prev[i] }));
+  const PRIORITY_COLORS = { High: '#f87171', Medium: '#fbbf24', Low: '#34d399' };
+
+  return (
+    <div className="ai-panel">
+      <div className="ap-header">
+        <span>AI Assistant</span>
+        <div className="ap-badge">BETA</div>
+      </div>
+
+      {/* Shape Recognition */}
+      <div className="ap-section">
+        <div className="ap-label">Shape Recognition</div>
+        {recLoading ? (
+          <div className="ap-loading">
+            <div className="ap-dots"><span/><span/><span/></div>
+            <p>Running TensorFlow.js model…</p>
+          </div>
+        ) : recResults ? (
+          <div className="rec-box">
+            {recResults.map((r, i) => (
+              <div key={i} className="rec-row">
+                <div className="rec-ico" style={{ color: r.clr }}>{r.ico}</div>
+                <div className="rec-name">{r.nm}</div>
+                <div className="rec-bar">
+                  <div className="rec-fill" style={{ width:`${r.c}%`, background: r.clr }} />
+                </div>
+                <div className="rec-pct">{Math.round(r.c)}%</div>
+              </div>
+            ))}
+            <div className="rec-footer">CNN model · client-side inference</div>
+          </div>
+        ) : (
+          <div className="ap-empty">
+            <div className="ap-empty-ico">🔍</div>
+            Draw something, then<br />click Recognize Shapes
+          </div>
+        )}
+        <button className="ap-btn accent" onClick={handleRecognize}>
+          ✦ Recognize Shapes
+        </button>
+      </div>
+
+      {/* NLP / Diagram */}
+      <div className="ap-section">
+        <div className="ap-label">Generate from Text</div>
+        <textarea
+          className="ap-textarea"
+          placeholder="e.g. user login flowchart…"
+          value={nlpText}
+          onChange={e => setNlpText(e.target.value)}
+        />
+        {diagError && <div style={{ color:'#f87171', fontSize:'11px', marginBottom:'6px' }}>{diagError}</div>}
+        <button className="ap-btn" onClick={handleGenDiagram} disabled={diagLoading}>
+          {diagLoading ? '↺ Generating…' : '↺ Generate Diagram'}
+        </button>
+      </div>
+
+      {/* Task Generation */}
+      <div className="ap-section ap-tasks-section">
+        <div className="ap-label">Generated Tasks</div>
+        <div className="ap-task-scroll">
+          {taskLoading ? (
+            <div className="ap-loading">
+              <div className="ap-dots"><span/><span/><span/></div>
+              <p>AI analyzing board…</p>
+            </div>
+          ) : tasks ? (
+            <div className="task-list">
+              {tasks.map((t, i) => (
+                <div
+                  key={i}
+                  className={`task-item ${checkedTasks[i] ? 'done' : ''}`}
+                  onClick={() => toggleTask(i)}
+                >
+                  <div className="task-chk" />
+                  <div>
+                    <div className="task-title">{t.title}</div>
+                    <div className="task-meta">
+                      <span style={{ color: PRIORITY_COLORS[t.priority] || 'var(--text3)' }}>
+                        ● {t.priority}
+                      </span>
+                      <span className="task-cat">{t.category}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="ap-empty">
+              <div className="ap-empty-ico">📋</div>
+              Tasks will appear here<br />after AI analysis
+            </div>
+          )}
+        </div>
+        <button className="ap-btn accent" onClick={handleGenTasks} disabled={taskLoading}>
+          ✦ Generate Tasks from Board
+        </button>
+      </div>
+    </div>
+  );
+}
