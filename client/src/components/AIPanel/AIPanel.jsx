@@ -73,16 +73,30 @@ function renderDiagramOnCanvas(diagram) {
 
   ctx.clearRect(0, 0, cw, ch);
 
-  // ── Layout: vertical flowchart, fixed top margin, centered horizontally ──
-  const NODE_W = 180;
-  const NODE_H = 48;
-  const GAP    = 120;
+  // ── Layout: vertical flowchart, adaptive gap so all nodes stay on canvas ──
+  const NODE_W      = 180;
+  const NODE_H      = 48;
+  const DESIRED_GAP = 120;
+  const nodeCount   = nodes.length;
+
+  // Compress the gap when nodes would otherwise overflow the canvas height.
+  // Keep at least 20px between nodes so the diagram stays readable.
+  const availH = ch - 40; // 20px top + 20px bottom margin
+  const effectiveGAP = nodeCount > 1
+    ? Math.max(20, Math.min(DESIRED_GAP, (availH - nodeCount * NODE_H) / (nodeCount - 1)))
+    : DESIRED_GAP;
+
+  const totalH = nodeCount * NODE_H + (nodeCount - 1) * effectiveGAP;
   const startX = cw / 2;
-  const startY = 60;
+  // Centre the stack vertically; clamp so top node never goes above a 20px margin
+  const startY = Math.max(NODE_H / 2 + 20, (ch - totalH) / 2 + NODE_H / 2);
+
+  console.log(`Diagram layout: canvas=${cw}x${ch} nodes=${nodeCount} gap=${effectiveGAP.toFixed(0)} startY=${startY.toFixed(0)}`);
 
   nodes.forEach((n, i) => {
     n._x = startX;
-    n._y = startY + i * (NODE_H + GAP);
+    n._y = startY + i * (NODE_H + effectiveGAP);
+    console.log(`  node[${i}] "${n.label}" y=${n._y.toFixed(0)}`);
   });
 
   const nodeMap = {};

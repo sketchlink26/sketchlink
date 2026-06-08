@@ -45,13 +45,17 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
   }, []);
 
   const getPos = (e) => {
-    const r  = canvasRef.current.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    const r  = canvas.getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    // getBoundingClientRect reflects the CSS-transformed (zoomed) rect.
-    // Dividing by zoom maps from visual space back to canvas coordinates.
-    const z = zoomRef.current || 1;
-    return { x: (cx - r.left) / z, y: (cy - r.top) / z };
+    // canvas.width / r.width converts from screen pixels to canvas-buffer pixels.
+    // r.width already includes any CSS transform (zoom) on the parent, so this
+    // single ratio handles both zoom and any buffer-vs-display-size mismatch.
+    return {
+      x: (cx - r.left) * (canvas.width  / r.width),
+      y: (cy - r.top)  * (canvas.height / r.height),
+    };
   };
 
   const redrawAll = (ctx, stks) => {
