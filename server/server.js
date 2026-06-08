@@ -7,6 +7,8 @@ const dotenv     = require('dotenv');
 
 dotenv.config();
 
+require('./keepalive')();
+
 const connectDB       = require('./config/db');
 const authRoutes      = require('./routes/auth');
 const boardRoutes     = require('./routes/boards');

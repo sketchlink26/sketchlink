@@ -50,12 +50,11 @@ function renderDiagramOnCanvas(diagram) {
 
   const ctx = canvas.getContext('2d');
 
-  // If canvas was sized only via CSS its width/height attributes are the
-  // browser default (300×150). Read the layout size and stamp it back so
-  // the coordinate system matches what the user sees.
   let cw = canvas.width;
   let ch = canvas.height;
-  if (!cw || !ch) {
+  // canvas.width/height default to 300×150 when never explicitly sized —
+  // detect that and read the actual CSS layout dimensions instead.
+  if (cw === 300 && ch === 150) {
     const rect = canvas.getBoundingClientRect();
     if (rect.width && rect.height) {
       canvas.width  = Math.round(rect.width);
@@ -74,13 +73,12 @@ function renderDiagramOnCanvas(diagram) {
 
   ctx.clearRect(0, 0, cw, ch);
 
-  // ── Layout: vertical flowchart centered, ignoring JSON x/y ──
+  // ── Layout: vertical flowchart, fixed top margin, centered horizontally ──
   const NODE_W = 180;
   const NODE_H = 48;
   const GAP    = 120;
-  const totalHeight = nodes.length * NODE_H + (nodes.length - 1) * GAP;
   const startX = cw / 2;
-  const startY = Math.max(NODE_H, (ch - totalHeight) / 2) + NODE_H / 2;
+  const startY = 60;
 
   nodes.forEach((n, i) => {
     n._x = startX;

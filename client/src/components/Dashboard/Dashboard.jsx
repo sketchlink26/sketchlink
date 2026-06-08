@@ -7,11 +7,13 @@ import './Dashboard.css';
 export default function Dashboard() {
   const { user, logout }  = useAuth();
   const navigate           = useNavigate();
-  const [boards,   setBoards]   = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [boards,    setBoards]    = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [creating,  setCreating]  = useState(false);
+  const [newTitle,  setNewTitle]  = useState('');
+  const [showForm,  setShowForm]  = useState(false);
+  const [shareCode, setShareCode] = useState('');
+  const [joining,   setJoining]   = useState(false);
 
   useEffect(() => {
     fetchBoards();
@@ -38,6 +40,18 @@ export default function Dashboard() {
       console.error(err);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const joinBoard = async () => {
+    if (shareCode.length !== 6) return;
+    setJoining(true);
+    try {
+      const { data } = await api.get(`/boards/share/${shareCode.trim().toUpperCase()}`);
+      navigate(`/board/${data.board._id}`);
+    } catch {
+      alert('Board not found. Check the share code and try again.');
+      setJoining(false);
     }
   };
 
@@ -81,6 +95,27 @@ export default function Dashboard() {
           <button className="dash-new-btn" onClick={() => setShowForm(true)}>
             + New Board
           </button>
+
+          {/* Join by share code */}
+          <div style={{ display:'flex', gap:'8px', alignItems:'center', marginTop:'10px' }}>
+            <input
+              type="text"
+              placeholder="Share code…"
+              value={shareCode}
+              maxLength={6}
+              onChange={e => setShareCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+              onKeyDown={e => e.key === 'Enter' && joinBoard()}
+              style={{ width:'110px', letterSpacing:'2px', textTransform:'uppercase', textAlign:'center' }}
+            />
+            <button
+              className="dash-new-btn"
+              onClick={joinBoard}
+              disabled={joining || shareCode.length !== 6}
+              style={{ opacity: shareCode.length !== 6 ? 0.5 : 1 }}
+            >
+              {joining ? 'Joining…' : 'Join Board'}
+            </button>
+          </div>
         </div>
 
         {/* New board form */}
