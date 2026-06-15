@@ -187,14 +187,27 @@ export default function Whiteboard() {
     return 'crosshair';
   };
 
-  if (loading) return (
-    <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text3)' }}>
-      Loading board…
-    </div>
-  );
+  // NOTE: we intentionally do NOT early-return when loading=true.
+  // useCanvas's init useEffect runs on the very first mount; if the canvas
+  // element isn't in the DOM yet (because we returned a loading div instead)
+  // ctxRef is never set and startDraw silently no-ops on production.
+  // Fix: always render the canvas so the effect sees it on mount, and cover
+  // the UI with a fixed overlay while the board data is loading.
 
   return (
     <div className="whiteboard-wrap">
+      {/* Full-screen overlay while board data loads — canvas stays in DOM */}
+      {loading && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg, #0c0c14)', color: 'var(--text3, #5a5a7a)',
+          fontSize: '14px',
+        }}>
+          Loading board…
+        </div>
+      )}
+
       <Header
         title={boardTitle}
         onTitleChange={setBoardTitle}

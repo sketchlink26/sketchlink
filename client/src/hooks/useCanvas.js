@@ -52,17 +52,15 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     const r  = canvas.getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    // canvas.width / r.width converts from screen pixels to canvas-buffer pixels.
-    // r.width already includes any CSS transform (zoom) on the parent, so this
-    // single ratio handles both zoom and any buffer-vs-display-size mismatch.
-    // Guard: if the element has no layout yet (production timing) r.width can
-    // be 0, which would produce NaN and silently break all drawing.
     const scaleX = r.width  > 0 ? canvas.width  / r.width  : 1;
     const scaleY = r.height > 0 ? canvas.height / r.height : 1;
-    return {
-      x: (cx - r.left) * scaleX,
-      y: (cy - r.top)  * scaleY,
-    };
+    const pos = { x: (cx - r.left) * scaleX, y: (cy - r.top) * scaleY };
+    console.log('[getPos] rect:', r.left.toFixed(0), r.top.toFixed(0),
+      r.width.toFixed(0), r.height.toFixed(0),
+      '| buf:', canvas.width, canvas.height,
+      '| scale:', scaleX.toFixed(3), scaleY.toFixed(3),
+      '| pos:', pos.x.toFixed(0), pos.y.toFixed(0));
+    return pos;
   };
 
   const redrawAll = (ctx, stks) => {
@@ -139,7 +137,14 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
   };
 
   const startDraw = useCallback((e) => {
-    if (!ctxRef.current || !canvasRef.current) return;
+    console.log('[startDraw] called | ctxRef:', !!ctxRef.current,
+      '| canvasRef:', !!canvasRef.current,
+      '| tool:', tool,
+      '| canvas size:', canvasRef.current?.width, 'x', canvasRef.current?.height);
+    if (!ctxRef.current || !canvasRef.current) {
+      console.warn('[startDraw] BLOCKED — ctx or canvas is null (canvas not yet initialised)');
+      return;
+    }
     drawing.current  = true;
     const p          = getPos(e);
     startPos.current = p;
