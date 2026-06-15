@@ -112,4 +112,54 @@ const digitizeImage = async (req, res, next) => {
   }
 };
 
-module.exports = { generateTasks, generateDiagram, digitizeImage };
+// POST /api/ai/export-trello  — push generated tasks to a new Trello board
+const exportToTrello = async (req, res, next) => {
+  try {
+    const { tasks, apiKey, token, boardName } = req.body;
+    if (!tasks?.length || !apiKey || !token) {
+      return res.status(400).json({ message: 'tasks, apiKey, and token are required' });
+    }
+
+    const q = (s) => encodeURIComponent(s ?? '');
+
+    // 1 — create board
+    const boardRes = await fetch(
+      `https://api.trello.com/1/boards/?name=${q(boardName || 'SketchLink Board')}&key=${q(apiKey)}&token=${q(token)}`,
+      { method: 'POST' }
+    );
+    if (!boardRes.ok) {
+      const msg = await boardRes.text();
+      return res.status(400).json({ message: `Trello: board creation failed — ${msg}` });
+    }
+    const trelloBoard = await boardRes.json();
+
+    // 2 — create list inside that board
+    const listRes = await fetch(
+      `https://api.trello.com/1/lists?name=SketchLink%20Tasks&idBoard=${trelloBoard.id}&key=${q(apiKey)}&token=${q(token)}`,
+      { method: 'POST' }
+    );
+    if (!listRes.ok) {
+      const msg = await listRes.text();
+      return res.status(400).json({ message: `Trello: list creation failed — ${msg}` });
+    }
+    const list = await listRes.json();
+
+    // 3 — one card per task (continue on individual card failures)
+    for (const task of tasks) {
+      const cardRes = await fetch(
+        `https://api.trello.com/1/cards?name=${q(task.title)}&desc=${q(`Priority: ${task.priority} | Category: ${task.category}`)}&idList=${list.id}&key=${q(apiKey)}&token=${q(token)}`,
+        { method: 'POST' }
+      );
+      if (!cardRes.ok) {
+        console.warn(`[Trello] card skipped for: ${task.title}`);
+      }
+    }
+
+    res.json({ success: true, boardUrl: `https://trello.com/b/${trelloBoard.shortLink}` });
+  } catch (err) {
+    console.error('Trello export error:', err.message);
+    next(err);
+  }
+};
+
+module.exports = { generateTasks, generateDiagram, digitizeImage, exportToTrello };

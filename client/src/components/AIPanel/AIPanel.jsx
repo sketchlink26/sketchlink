@@ -333,6 +333,7 @@ export default function AIPanel({ strokes, boardId, onSnapMessage, onDiagramStro
         boardDescription: desc, boardId, nlpHint: nlpText,
       });
       setTasks(data.tasks);
+      setShowTrelloForm(false); setTrelloSuccess(''); setTrelloError('');
       onSnapMessage('✦ Tasks generated');
     } catch {
       setTasks([
@@ -385,6 +386,41 @@ export default function AIPanel({ strokes, boardId, onSnapMessage, onDiagramStro
   const [checkedTasks, setCheckedTasks] = useState({});
   const toggleTask = (i) => setCheckedTasks(prev => ({ ...prev, [i]: !prev[i] }));
   const PRIORITY_COLORS = { High: '#f87171', Medium: '#fbbf24', Low: '#34d399' };
+
+  const [showTrelloForm,  setShowTrelloForm]  = useState(false);
+  const [trelloKey,       setTrelloKey]       = useState('');
+  const [trelloToken,     setTrelloToken]     = useState('');
+  const [trelloBoardName, setTrelloBoardName] = useState('SketchLink Board');
+  const [trelloLoading,   setTrelloLoading]   = useState(false);
+  const [trelloError,     setTrelloError]     = useState('');
+  const [trelloSuccess,   setTrelloSuccess]   = useState('');
+
+  const handleExportTrello = useCallback(async () => {
+    if (!trelloKey.trim() || !trelloToken.trim()) {
+      setTrelloError('API Key and Token are required.');
+      return;
+    }
+    setTrelloLoading(true);
+    setTrelloError('');
+    setTrelloSuccess('');
+    try {
+      const { data } = await api.post('/ai/export-trello', {
+        tasks,
+        apiKey:    trelloKey.trim(),
+        token:     trelloToken.trim(),
+        boardName: trelloBoardName.trim() || 'SketchLink Board',
+      });
+      if (data.boardUrl) {
+        setTrelloSuccess(data.boardUrl);
+        onSnapMessage('✦ Exported to Trello');
+      }
+    } catch (err) {
+      console.error('Trello export error:', err);
+      setTrelloError(err.response?.data?.message || 'Export failed. Check your API Key and Token.');
+    } finally {
+      setTrelloLoading(false);
+    }
+  }, [tasks, trelloKey, trelloToken, trelloBoardName, onSnapMessage]);
 
   return (
     <div className="ai-panel">
@@ -514,6 +550,76 @@ export default function AIPanel({ strokes, boardId, onSnapMessage, onDiagramStro
             </div>
           )}
         </div>
+
+        {/* Trello export — visible only after tasks are generated */}
+        {tasks && !showTrelloForm && (
+          <button
+            className="ap-btn"
+            style={{ marginBottom: '4px' }}
+            onClick={() => { setShowTrelloForm(true); setTrelloSuccess(''); setTrelloError(''); }}
+          >
+            📋 Export to Trello
+          </button>
+        )}
+        {tasks && showTrelloForm && (
+          <div style={{ display:'flex', flexDirection:'column', gap:'5px', marginBottom:'4px' }}>
+            <input
+              placeholder="Board name"
+              value={trelloBoardName}
+              onChange={e => setTrelloBoardName(e.target.value)}
+              style={{ fontSize:'12px', padding:'6px 8px' }}
+            />
+            <input
+              type="password"
+              placeholder="Trello API Key"
+              value={trelloKey}
+              onChange={e => setTrelloKey(e.target.value)}
+              style={{ fontSize:'12px', padding:'6px 8px' }}
+            />
+            <input
+              type="password"
+              placeholder="Trello Token"
+              value={trelloToken}
+              onChange={e => setTrelloToken(e.target.value)}
+              style={{ fontSize:'12px', padding:'6px 8px' }}
+            />
+            {trelloError && (
+              <div style={{ color:'#f87171', fontSize:'11px' }}>{trelloError}</div>
+            )}
+            {trelloSuccess && (
+              <a href={trelloSuccess} target="_blank" rel="noreferrer"
+                 style={{ fontSize:'11px', color:'var(--green)', wordBreak:'break-all' }}>
+                ✓ Board created — open Trello →
+              </a>
+            )}
+            <div style={{ display:'flex', gap:'5px' }}>
+              <button
+                className="ap-btn"
+                style={{ flex:1 }}
+                onClick={() => setShowTrelloForm(false)}
+                disabled={trelloLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="ap-btn accent"
+                style={{ flex:2 }}
+                onClick={handleExportTrello}
+                disabled={trelloLoading}
+              >
+                {trelloLoading ? '↺ Exporting…' : '✦ Export'}
+              </button>
+            </div>
+            <div style={{ fontSize:'10px', color:'var(--text3)', lineHeight:'1.5' }}>
+              Get your key &amp; token at{' '}
+              <a href="https://trello.com/app-key" target="_blank" rel="noreferrer"
+                 style={{ color:'var(--accent)' }}>
+                trello.com/app-key
+              </a>
+            </div>
+          </div>
+        )}
+
         <button className="ap-btn accent" onClick={handleGenTasks} disabled={taskLoading}>
           ✦ Generate Tasks from Board
         </button>
