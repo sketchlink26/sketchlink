@@ -191,6 +191,8 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
 
     if (tool === 'pen' && curPath.current.length > 1) {
       newStroke = { type:'pen', path:[...curPath.current], color, sw: strokeWidth };
+    } else if (tool === 'select') {
+      // Select tool: no stroke produced, future use for element selection
     } else if (['rect','circle','arrow','diamond'].includes(tool)) {
       newStroke = { type:tool, x1:sx, y1:sy, x2:last.x, y2:last.y, color, sw: strokeWidth };
     }

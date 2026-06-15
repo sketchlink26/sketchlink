@@ -425,7 +425,11 @@ export default function AIPanel({ strokes, boardId, onSnapMessage, onDiagramStro
   return (
     <div className="ai-panel">
       <div className="ap-header">
-        <span>AI Assistant</span>
+        <span className="ap-header-icon">🤖</span>
+        <div>
+          <div className="ap-header-title">AI Assistant</div>
+          <div className="ap-header-sub">Smart suggestions</div>
+        </div>
         <div className="ap-badge">BETA</div>
       </div>
 

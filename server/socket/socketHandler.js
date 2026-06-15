@@ -70,6 +70,19 @@ const socketHandler = (io) => {
       socket.to(boardId).emit('board-cleared', { by: socket.id });
     });
 
+    // ── TEAM CHAT ─────────────────────────────────────────────
+    socket.on('chat-message', ({ boardId, message }) => {
+      const roomUsers = boardUsers.get(boardId);
+      const userInfo  = roomUsers?.get(socket.id);
+      io.to(boardId).emit('chat-message-received', {
+        id:      `${Date.now()}-${socket.id}`,
+        message,
+        user:    userInfo?.name  || 'Anonymous',
+        color:   userInfo?.color || '#7c6ef5',
+        time:    new Date().toISOString(),
+      });
+    });
+
     // ── OBJECT LOCK (prevent edit conflicts) ──────────────────
     socket.on('lock-element', ({ boardId, elementId }) => {
       socket.to(boardId).emit('element-locked', { elementId, by: socket.id });

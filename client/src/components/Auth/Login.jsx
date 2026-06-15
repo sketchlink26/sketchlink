@@ -8,8 +8,8 @@ export default function Login() {
   const [form,    setForm]    = useState({ email: '', password: '' });
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
-  const { login }    = useAuth();
-  const navigate     = useNavigate();
+  const { login }  = useAuth();
+  const navigate   = useNavigate();
 
   const handleChange = e =>
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -31,13 +31,15 @@ export default function Login() {
 
   return (
     <div className="auth-bg">
+      <div className="auth-circle" />
       <div className="auth-card">
         <div className="auth-logo">
           <div className="auth-logo-icon">✦</div>
           SketchLink
         </div>
-        <h2 className="auth-title">Welcome back</h2>
-        <p className="auth-sub">Sign in to your workspace</p>
+
+        <h2 className="auth-title">Welcome Back</h2>
+        <p className="auth-sub">Join the next generation of creative collaboration</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           {error && <div className="auth-error">{error}</div>}
@@ -66,6 +68,10 @@ export default function Login() {
             />
           </div>
 
+          <div className="auth-forgot-row">
+            <span className="auth-forgot">Forgot password?</span>
+          </div>
+
           <button className="auth-btn" type="submit" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
@@ -73,7 +79,7 @@ export default function Login() {
 
         <p className="auth-footer">
           Don't have an account?{' '}
-          <Link to="/register">Create one</Link>
+          <Link to="/register">Sign up</Link>
         </p>
       </div>
     </div>

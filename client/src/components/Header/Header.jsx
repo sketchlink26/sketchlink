@@ -2,7 +2,8 @@ import React from 'react';
 import './Header.css';
 
 export default function Header({
-  title, onTitleChange, onlineUsers, onExport, onBack, boardId
+  title, onTitleChange, onlineUsers, onExport, onBack, boardId,
+  onUndo, onChatToggle, showChat,
 }) {
   const shareBoard = () => {
     const url = `${window.location.origin}/board/${boardId}`;
@@ -12,9 +13,8 @@ export default function Header({
 
   return (
     <header className="wh-header">
-      <button className="wh-back" onClick={onBack} title="Back to Dashboard">
-        ← Dashboard
-      </button>
+      {/* Left */}
+      <button className="wh-back" onClick={onBack} title="Back to Dashboard">←</button>
 
       <div className="wh-logo">
         <div className="wh-logo-icon">✦</div>
@@ -31,6 +31,15 @@ export default function Header({
         {title}
       </div>
 
+      {/* Center — actions */}
+      <div className="wh-center">
+        {onUndo && (
+          <button className="wh-tool-btn" onClick={onUndo} title="Undo (Ctrl+Z)">↩</button>
+        )}
+        <button className="wh-tool-btn wh-dimmed" title="AI Summarize — coming soon" disabled>⚡ AI</button>
+        <button className="wh-tool-btn wh-dimmed" title="Auto Layout — coming soon" disabled>⊞ Layout</button>
+      </div>
+
       <div className="wh-spacer" />
 
       {/* Online users */}
@@ -40,16 +49,24 @@ export default function Header({
             key={u.id}
             className="wh-avatar"
             style={{ background: u.color }}
-            title={u.name + ' — Online'}
+            title={`${u.name} — Online`}
           >
-            {u.name?.slice(0, 2).toUpperCase() || '?'}
+            {u.name?.slice(0, 2).toUpperCase() || '??'}
             <div className="wh-avatar-dot" />
           </div>
         ))}
       </div>
 
-      <button className="wh-btn" onClick={onExport}>↓ Export PNG</button>
+      {/* Right actions */}
+      <button className="wh-btn" onClick={onExport} title="Export as PNG">↓ Export</button>
       <button className="wh-btn wh-btn-accent" onClick={shareBoard}>⬡ Share</button>
+      <button
+        className={`wh-btn wh-btn-chat ${showChat ? 'active' : ''}`}
+        onClick={onChatToggle}
+        title="Team Chat"
+      >
+        💬
+      </button>
     </header>
   );
 }

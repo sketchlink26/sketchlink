@@ -2,20 +2,21 @@ import React from 'react';
 import './Toolbar.css';
 
 const TOOLS = [
-  { id: 'pen',     icon: '✏️', label: 'Pen (P)'       },
-  { id: 'eraser',  icon: '🧹', label: 'Eraser (E)'    },
-  null, // divider
-  { id: 'rect',    icon: '▭',  label: 'Rectangle (R)' },
-  { id: 'circle',  icon: '○',  label: 'Circle (C)'    },
-  { id: 'arrow',   icon: '→',  label: 'Arrow (A)'     },
-  { id: 'diamond', icon: '◇',  label: 'Diamond (D)'   },
-  { id: 'text',    icon: 'T',  label: 'Text (T)'      },
+  { id: 'select',  icon: '↖', label: 'Select (V)'       },
+  { id: 'pen',     icon: '✏️', label: 'Pen (P)'         },
+  { id: 'eraser',  icon: '🧹', label: 'Eraser (E)'      },
+  null,
+  { id: 'rect',    icon: '▭',  label: 'Rectangle (R)'   },
+  { id: 'circle',  icon: '○',  label: 'Circle (C)'      },
+  { id: 'arrow',   icon: '→',  label: 'Arrow (A)'       },
+  { id: 'diamond', icon: '◇',  label: 'Diamond (D)'     },
+  { id: 'text',    icon: 'T',  label: 'Text (T)'        },
 ];
 
 const COLORS = [
-  '#e8e8f0','#f87171','#fb923c',
-  '#fbbf24','#34d399','#60a5fa',
-  '#c084fc','#f472b6',
+  '#e8e8f0', '#f87171', '#fb923c',
+  '#fbbf24', '#34d399', '#60a5fa',
+  '#c084fc', '#f472b6',
 ];
 
 const STROKES = [

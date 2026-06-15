@@ -35,19 +35,21 @@ export default function Register() {
 
   return (
     <div className="auth-bg">
+      <div className="auth-circle" />
       <div className="auth-card">
         <div className="auth-logo">
           <div className="auth-logo-icon">✦</div>
           SketchLink
         </div>
-        <h2 className="auth-title">Create account</h2>
-        <p className="auth-sub">Start your collaborative workspace</p>
+
+        <h2 className="auth-title">Create Account</h2>
+        <p className="auth-sub">Join the next generation of creative collaboration</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           {error && <div className="auth-error">{error}</div>}
 
           <div className="auth-field">
-            <label>Name</label>
+            <label>Full Name</label>
             <input
               type="text"
               name="name"

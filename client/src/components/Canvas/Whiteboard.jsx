@@ -7,6 +7,7 @@ import api from '../../services/api';
 import Header    from '../Header/Header';
 import Toolbar   from '../Toolbar/Toolbar';
 import AIPanel   from '../AIPanel/AIPanel';
+import TeamChat  from '../Chat/TeamChat';
 import StatusBar from '../StatusBar/StatusBar';
 import './Whiteboard.css';
 
@@ -36,10 +37,12 @@ export default function Whiteboard() {
   const panOrigin           = useRef({ x: 0, y: 0 });
   const spaceDown           = useRef(false);
 
-  const [onlineUsers, setOnlineUsers] = useState([]);
-  const [cursors,     setCursors]     = useState({});
-  const [snapMsg,     setSnapMsg]     = useState('');
-  const [showSnap,    setShowSnap]    = useState(false);
+  const [onlineUsers,   setOnlineUsers]   = useState([]);
+  const [cursors,       setCursors]       = useState({});
+  const [snapMsg,       setSnapMsg]       = useState('');
+  const [showSnap,      setShowSnap]      = useState(false);
+  const [showChat,      setShowChat]      = useState(false);
+  const [chatMessages,  setChatMessages]  = useState([]);
   const snapTimer = useRef(null);
 
   const {
@@ -49,13 +52,14 @@ export default function Whiteboard() {
     undo, clear, exportPNG,
   } = useCanvas(tool, color, strokeWidth, zoom);
 
-  const { emitStroke, emitShape, emitCursor, emitClear, emitUndo } = useSocket(id, user, {
+  const { emitStroke, emitShape, emitCursor, emitClear, emitUndo, emitChatMessage } = useSocket(id, user, {
     onStrokeReceived: ({ stroke }) => addRemoteStroke(stroke),
     onShapeReceived:  ({ shape })  => addRemoteStroke(shape),
     onCursorUpdated:  (data)       => setCursors(prev => ({ ...prev, [data.socketId]: data })),
     onUsersUpdated:   ({ users })  => setOnlineUsers(users),
     onBoardCleared:   ()           => clear(),
     onUndoReceived:   ()           => undo(),
+    onChatReceived:   (msg)        => setChatMessages(prev => [...prev, msg]),
   });
 
   // Load board
@@ -188,6 +192,7 @@ export default function Whiteboard() {
 
   const getCursor = () => {
     if (spaceDown.current) return isPanning.current ? 'grabbing' : 'grab';
+    if (tool === 'select') return 'default';
     if (tool === 'eraser') return 'cell';
     if (tool === 'text')   return 'text';
     return 'crosshair';
@@ -221,6 +226,9 @@ export default function Whiteboard() {
         onExport={exportPNG}
         onBack={() => navigate('/dashboard')}
         boardId={id}
+        onUndo={handleUndo}
+        onChatToggle={() => setShowChat(v => !v)}
+        showChat={showChat}
       />
 
       <div className="whiteboard-body">
@@ -286,6 +294,15 @@ export default function Whiteboard() {
 
         <AIPanel strokes={strokes} boardId={id} onSnapMessage={flashSnap}
                  onDiagramStrokes={handleDiagramStrokes} />
+
+        {showChat && (
+          <TeamChat
+            messages={chatMessages}
+            currentUser={user}
+            onSend={emitChatMessage}
+            onClose={() => setShowChat(false)}
+          />
+        )}
       </div>
 
       <StatusBar tool={tool} strokeCount={strokes.length} onlineCount={onlineUsers.length || 1} />

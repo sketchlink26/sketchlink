@@ -13,10 +13,23 @@
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.ap-header-icon { font-size: 20px; flex-shrink: 0; }
+
+.ap-header-title {
   font-size: 13px;
   font-weight: 600;
-  flex-shrink: 0;
+  color: var(--text);
+  line-height: 1;
+}
+
+.ap-header-sub {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 2px;
 }
 
 .ap-badge {

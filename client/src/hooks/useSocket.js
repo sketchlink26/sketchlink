@@ -25,7 +25,9 @@ export default function useSocket(boardId, user, handlers = {}) {
     if (handlers.onBoardCleared)
       socket.on('board-cleared',     handlers.onBoardCleared);
     if (handlers.onUndoReceived)
-      socket.on('undo-received',     handlers.onUndoReceived);
+      socket.on('undo-received',         handlers.onUndoReceived);
+    if (handlers.onChatReceived)
+      socket.on('chat-message-received', handlers.onChatReceived);
 
     return () => {
       socket.off('stroke-received');
@@ -34,6 +36,7 @@ export default function useSocket(boardId, user, handlers = {}) {
       socket.off('users-updated');
       socket.off('board-cleared');
       socket.off('undo-received');
+      socket.off('chat-message-received');
     };
   }, [boardId]);
 
@@ -57,5 +60,9 @@ export default function useSocket(boardId, user, handlers = {}) {
     socketRef.current?.emit('undo', { boardId });
   }, [boardId]);
 
-  return { emitStroke, emitShape, emitCursor, emitClear, emitUndo };
+  const emitChatMessage = useCallback((message) => {
+    socketRef.current?.emit('chat-message', { boardId, message });
+  }, [boardId]);
+
+  return { emitStroke, emitShape, emitCursor, emitClear, emitUndo, emitChatMessage };
 }
