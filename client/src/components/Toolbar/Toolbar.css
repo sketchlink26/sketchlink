@@ -1,6 +1,6 @@
 .toolbar {
   width: 50px;
-  background: var(--surface);
+  background: var(--bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -13,18 +13,26 @@
 
 .tb-btn {
   width: 34px; height: 34px;
-  border-radius: 7px;
+  border-radius: 8px;
   background: transparent;
   border: none;
   color: var(--text2);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.15s;
+  transition: all 0.18s ease;
   font-size: 15px;
   position: relative;
 }
-.tb-btn:hover  { background: var(--surface2); color: var(--text); }
-.tb-btn.active { background: var(--accent);   color: #fff; }
+.tb-btn:hover  {
+  background: var(--surface2);
+  color: var(--text);
+  box-shadow: 0 0 10px rgba(124,110,245,0.15);
+}
+.tb-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(124,110,245,0.45);
+}
 
 /* Tooltip */
 .tb-tip {

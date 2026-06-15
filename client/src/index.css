@@ -1,8 +1,8 @@
 :root {
-  --bg:         #0c0c14;
-  --surface:    #13131e;
-  --surface2:   #1c1c2a;
-  --border:     #272738;
+  --bg:         #0f0f1a;
+  --surface:    #1a1a2e;
+  --surface2:   #1e1e30;
+  --border:     #2a2a42;
   --accent:     #7c6ef5;
   --accent2:    #a78bfa;
   --green:      #34d399;
@@ -11,7 +11,7 @@
   --text:       #e8e8f0;
   --text2:      #9898b0;
   --text3:      #5a5a7a;
-  --canvas-bg:  #0f0f1a;
+  --canvas-bg:  #0c0c14;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }

@@ -117,15 +117,15 @@
   width: 28px;
   height: 28px;
   border: none;
-  background: var(--background-secondary, #12121f);
-  color: var(--text1, #e8e8f0);
+  background: var(--surface2);
+  color: var(--text);
   border-radius: 6px;
   font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  transition: all 0.15s;
 }
 
 .zoom-controls button:hover {
