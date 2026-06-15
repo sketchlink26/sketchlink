@@ -80,4 +80,36 @@ Keep it to 4–7 nodes. Space nodes at least 150px apart. No markdown, raw JSON 
   }
 };
 
-module.exports = { generateTasks, generateDiagram };
+// POST /api/ai/digitize  — analyse uploaded sketch with GPT-4o vision
+const digitizeImage = async (req, res, next) => {
+  try {
+    const { imageBase64 } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ message: 'imageBase64 is required' });
+    }
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: imageBase64 } },
+          {
+            type: 'text',
+            text: 'Analyze this hand-drawn sketch and return a JSON diagram. Return ONLY valid JSON with this exact structure: {"nodes":[{"id":"n1","label":"...","shape":"rect|circle|diamond","color":"#hexcolor"}],"edges":[{"from":"n1","to":"n2","label":""}]}. Keep it to 4–7 nodes. No markdown fences, no explanation — raw JSON only.',
+          },
+        ],
+      }],
+      max_tokens: 800,
+    });
+
+    const raw     = response.choices[0].message.content.trim().replace(/```json|```/g, '').trim();
+    const diagram = JSON.parse(raw);
+    res.json({ diagram });
+  } catch (err) {
+    console.error('Digitize error:', err.message);
+    next(err);
+  }
+};
+
+module.exports = { generateTasks, generateDiagram, digitizeImage };

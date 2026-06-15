@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import api from '../../services/api';
 import './AIPanel.css';
 
@@ -261,6 +261,55 @@ export default function AIPanel({ strokes, boardId, onSnapMessage, onDiagramStro
   const [diagLoading, setDiagLoading] = useState(false);
   const [diagError,   setDiagError]   = useState('');
 
+  const [digitizeFile,    setDigitizeFile]    = useState(null);
+  const [digitizeLoading, setDigitizeLoading] = useState(false);
+  const [digitizeError,   setDigitizeError]   = useState('');
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (file) { setDigitizeFile(file); setDigitizeError(''); }
+  }, []);
+
+  const handleDigitize = useCallback(async () => {
+    if (!digitizeFile) return;
+    setDigitizeLoading(true);
+    setDigitizeError('');
+    try {
+      // Convert file to base64 data URL (accepted by OpenAI vision API)
+      const imageBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(digitizeFile);
+      });
+
+      const { data } = await api.post('/ai/digitize', { imageBase64 });
+
+      if (data.diagram) {
+        const diag   = data.diagram;
+        const canvas = document.querySelector('.canvas-transform canvas')
+                     || document.querySelector('.canvas-wrap canvas')
+                     || document.querySelector('canvas');
+        if (onDiagramStrokes && canvas) {
+          const diagStrokes = diagramToStrokes(diag, canvas.width, canvas.height);
+          if (diagStrokes.length) onDiagramStrokes(diagStrokes);
+        }
+        setTimeout(() => renderDiagramOnCanvas(diag), 0);
+        onSnapMessage('✦ Sketch digitized');
+        setDigitizeFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } else {
+        setDigitizeError('Could not parse sketch. Try a clearer image.');
+      }
+    } catch (err) {
+      console.error('Digitize error:', err);
+      setDigitizeError('Digitization failed. Try again.');
+    } finally {
+      setDigitizeLoading(false);
+    }
+  }, [digitizeFile, onDiagramStrokes, onSnapMessage]);
+
   const handleRecognize = useCallback(async () => {
     if (!strokes.length) { alert('Draw something first!'); return; }
     setRecLoading(true);
@@ -374,6 +423,42 @@ export default function AIPanel({ strokes, boardId, onSnapMessage, onDiagramStro
         )}
         <button className="ap-btn accent" onClick={handleRecognize}>
           ✦ Recognize Shapes
+        </button>
+      </div>
+
+      {/* Upload & Digitize */}
+      <div className="ap-section">
+        <div className="ap-label">Upload &amp; Digitize</div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+        {digitizeFile ? (
+          <div style={{ fontSize:'11px', color:'var(--text2)', padding:'6px 0',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            📎 {digitizeFile.name}
+          </div>
+        ) : (
+          <div className="ap-empty" style={{ padding:'10px 0' }}>
+            <div className="ap-empty-ico">🖼</div>
+            Upload a hand-drawn sketch<br />to digitize it with AI
+          </div>
+        )}
+        {digitizeError && (
+          <div style={{ color:'#f87171', fontSize:'11px', marginBottom:'4px' }}>
+            {digitizeError}
+          </div>
+        )}
+        <button className="ap-btn" onClick={() => fileInputRef.current?.click()}
+                disabled={digitizeLoading}>
+          📎 Choose Image
+        </button>
+        <button className="ap-btn accent" onClick={handleDigitize}
+                disabled={!digitizeFile || digitizeLoading}>
+          {digitizeLoading ? '↺ Digitizing…' : '✦ Digitize Sketch'}
         </button>
       </div>
 
