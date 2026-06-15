@@ -78,4 +78,24 @@ const getMe = async (req, res) => {
   });
 };
 
-module.exports = { register, login, getMe };
+// PUT /api/auth/profile — update display name
+const updateProfile = async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: 'Name is required' });
+
+    const updated = await User.findByIdAndUpdate(
+      req.user._id,
+      { name: name.trim() },
+      { new: true }
+    );
+
+    res.json({
+      user: { _id: updated._id, name: updated.name, email: updated.email, role: updated.role },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile };

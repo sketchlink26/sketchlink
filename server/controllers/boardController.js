@@ -9,7 +9,7 @@ const getBoards = async (req, res, next) => {
         { 'collaborators.user': req.user._id },
       ],
     })
-      .select('title description thumbnail createdAt updatedAt shareCode')
+      .select('title description thumbnail createdAt updatedAt shareCode owner')
       .sort({ updatedAt: -1 });
 
     res.json({ boards });
