@@ -3,7 +3,7 @@ import './Header.css';
 
 export default function Header({
   title, onTitleChange, onlineUsers, onExport, onBack, boardId,
-  onUndo, onChatToggle, showChat,
+  onUndo, onChatToggle, showChat, unreadCount = 0,
 }) {
   const shareBoard = () => {
     const url = `${window.location.origin}/board/${boardId}`;
@@ -64,8 +64,12 @@ export default function Header({
         className={`wh-btn wh-btn-chat ${showChat ? 'active' : ''}`}
         onClick={onChatToggle}
         title="Team Chat"
+        style={{ position: 'relative' }}
       >
         💬
+        {!showChat && unreadCount > 0 && (
+          <span className="wh-chat-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+        )}
       </button>
     </header>
   );

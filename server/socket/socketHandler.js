@@ -83,6 +83,18 @@ const socketHandler = (io) => {
       });
     });
 
+    socket.on('chat-typing', ({ boardId, isTyping }) => {
+      const roomUsers = boardUsers.get(boardId);
+      const userInfo  = roomUsers?.get(socket.id);
+      if (!userInfo) return;
+      socket.to(boardId).emit('chat-typing', {
+        socketId: socket.id,
+        name:     userInfo.name,
+        color:    userInfo.color,
+        isTyping,
+      });
+    });
+
     // ── OBJECT LOCK (prevent edit conflicts) ──────────────────
     socket.on('lock-element', ({ boardId, elementId }) => {
       socket.to(boardId).emit('element-locked', { elementId, by: socket.id });

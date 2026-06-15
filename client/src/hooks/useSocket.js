@@ -28,6 +28,8 @@ export default function useSocket(boardId, user, handlers = {}) {
       socket.on('undo-received',         handlers.onUndoReceived);
     if (handlers.onChatReceived)
       socket.on('chat-message-received', handlers.onChatReceived);
+    if (handlers.onTypingReceived)
+      socket.on('chat-typing',           handlers.onTypingReceived);
 
     return () => {
       socket.off('stroke-received');
@@ -37,6 +39,7 @@ export default function useSocket(boardId, user, handlers = {}) {
       socket.off('board-cleared');
       socket.off('undo-received');
       socket.off('chat-message-received');
+      socket.off('chat-typing');
     };
   }, [boardId]);
 
@@ -64,5 +67,9 @@ export default function useSocket(boardId, user, handlers = {}) {
     socketRef.current?.emit('chat-message', { boardId, message });
   }, [boardId]);
 
-  return { emitStroke, emitShape, emitCursor, emitClear, emitUndo, emitChatMessage };
+  const emitTyping = useCallback((isTyping) => {
+    socketRef.current?.emit('chat-typing', { boardId, isTyping });
+  }, [boardId]);
+
+  return { emitStroke, emitShape, emitCursor, emitClear, emitUndo, emitChatMessage, emitTyping };
 }

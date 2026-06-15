@@ -43,7 +43,11 @@ export default function Whiteboard() {
   const [showSnap,      setShowSnap]      = useState(false);
   const [showChat,      setShowChat]      = useState(false);
   const [chatMessages,  setChatMessages]  = useState([]);
-  const snapTimer = useRef(null);
+  const [unreadCount,   setUnreadCount]   = useState(0);
+  const [typingUsers,   setTypingUsers]   = useState({});
+  const showChatRef = useRef(false);
+  const snapTimer   = useRef(null);
+  const typingTimers = useRef({});
 
   const {
     canvasRef, strokes,
@@ -52,14 +56,33 @@ export default function Whiteboard() {
     undo, clear, exportPNG,
   } = useCanvas(tool, color, strokeWidth, zoom);
 
-  const { emitStroke, emitShape, emitCursor, emitClear, emitUndo, emitChatMessage } = useSocket(id, user, {
+  const { emitStroke, emitShape, emitCursor, emitClear, emitUndo, emitChatMessage, emitTyping } = useSocket(id, user, {
     onStrokeReceived: ({ stroke }) => addRemoteStroke(stroke),
     onShapeReceived:  ({ shape })  => addRemoteStroke(shape),
     onCursorUpdated:  (data)       => setCursors(prev => ({ ...prev, [data.socketId]: data })),
     onUsersUpdated:   ({ users })  => setOnlineUsers(users),
     onBoardCleared:   ()           => clear(),
     onUndoReceived:   ()           => undo(),
-    onChatReceived:   (msg)        => setChatMessages(prev => [...prev, msg]),
+    onChatReceived: (msg) => {
+      setChatMessages(prev => [...prev, msg]);
+      if (!showChatRef.current) setUnreadCount(n => n + 1);
+    },
+    onTypingReceived: ({ socketId, name, color, isTyping }) => {
+      setTypingUsers(prev => {
+        const next = { ...prev };
+        if (isTyping) {
+          next[socketId] = { name, color };
+          clearTimeout(typingTimers.current[socketId]);
+          typingTimers.current[socketId] = setTimeout(() => {
+            setTypingUsers(p => { const n = { ...p }; delete n[socketId]; return n; });
+          }, 3000);
+        } else {
+          delete next[socketId];
+          clearTimeout(typingTimers.current[socketId]);
+        }
+        return next;
+      });
+    },
   });
 
   // Load board
@@ -179,6 +202,15 @@ export default function Whiteboard() {
     diagStrokes.forEach(s => addRemoteStroke(s));
   }, [addRemoteStroke]);
 
+  const toggleChat = () => {
+    setShowChat(v => {
+      const next = !v;
+      showChatRef.current = next;
+      if (next) setUnreadCount(0);
+      return next;
+    });
+  };
+
   const handleUndo  = () => { undo(); emitUndo(); };
   const handleClear = () => {
     if (!window.confirm('Clear the board for everyone?')) return;
@@ -227,8 +259,9 @@ export default function Whiteboard() {
         onBack={() => navigate('/dashboard')}
         boardId={id}
         onUndo={handleUndo}
-        onChatToggle={() => setShowChat(v => !v)}
+        onChatToggle={toggleChat}
         showChat={showChat}
+        unreadCount={unreadCount}
       />
 
       <div className="whiteboard-body">
@@ -301,6 +334,8 @@ export default function Whiteboard() {
             currentUser={user}
             onSend={emitChatMessage}
             onClose={() => setShowChat(false)}
+            typingUsers={typingUsers}
+            onTyping={emitTyping}
           />
         )}
       </div>

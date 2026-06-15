@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './TeamChat.css';
 
-export default function TeamChat({ messages, onSend, onClose, currentUser }) {
+export default function TeamChat({ messages, onSend, onClose, currentUser, typingUsers = {}, onTyping }) {
   const [text, setText]   = useState('');
   const bottomRef         = useRef(null);
+  const typingTimer       = useRef(null);
+  const isTypingRef       = useRef(false);
 
-  // Scroll to bottom whenever messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -15,6 +16,25 @@ export default function TeamChat({ messages, onSend, onClose, currentUser }) {
     if (!trimmed) return;
     onSend(trimmed);
     setText('');
+    stopTyping();
+  };
+
+  const stopTyping = useCallback(() => {
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      onTyping?.(false);
+    }
+    clearTimeout(typingTimer.current);
+  }, [onTyping]);
+
+  const handleChange = (e) => {
+    setText(e.target.value);
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      onTyping?.(true);
+    }
+    clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(stopTyping, 2000);
   };
 
   const handleKey = (e) => {
@@ -25,6 +45,8 @@ export default function TeamChat({ messages, onSend, onClose, currentUser }) {
     if (!iso) return '';
     return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  const typers = Object.values(typingUsers).filter(u => u.name !== currentUser?.name);
 
   return (
     <div className="team-chat">
@@ -75,6 +97,18 @@ export default function TeamChat({ messages, onSend, onClose, currentUser }) {
             </div>
           );
         })}
+
+        {typers.length > 0 && (
+          <div className="tc-typing">
+            <div className="tc-typing-dots">
+              <span /><span /><span />
+            </div>
+            <span className="tc-typing-label">
+              {typers.map(u => u.name).join(', ')} {typers.length === 1 ? 'is' : 'are'} typing…
+            </span>
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
@@ -83,7 +117,7 @@ export default function TeamChat({ messages, onSend, onClose, currentUser }) {
           className="tc-input"
           placeholder="Type a message…"
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKey}
           rows={1}
         />
