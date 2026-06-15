@@ -36,10 +36,13 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
       redrawAll(ctx, strokesRef.current);
     };
 
-    const t = setTimeout(resize, 50);
+    const t1 = setTimeout(resize, 50);
+    // Retry at 300 ms in case the CSS layout wasn't ready at 50 ms (production)
+    const t2 = setTimeout(resize, 300);
     window.addEventListener('resize', resize);
     return () => {
-      clearTimeout(t);
+      clearTimeout(t1);
+      clearTimeout(t2);
       window.removeEventListener('resize', resize);
     };
   }, []);
@@ -52,9 +55,13 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     // canvas.width / r.width converts from screen pixels to canvas-buffer pixels.
     // r.width already includes any CSS transform (zoom) on the parent, so this
     // single ratio handles both zoom and any buffer-vs-display-size mismatch.
+    // Guard: if the element has no layout yet (production timing) r.width can
+    // be 0, which would produce NaN and silently break all drawing.
+    const scaleX = r.width  > 0 ? canvas.width  / r.width  : 1;
+    const scaleY = r.height > 0 ? canvas.height / r.height : 1;
     return {
-      x: (cx - r.left) * (canvas.width  / r.width),
-      y: (cy - r.top)  * (canvas.height / r.height),
+      x: (cx - r.left) * scaleX,
+      y: (cy - r.top)  * scaleY,
     };
   };
 
@@ -81,8 +88,11 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     } else if (s.type === 'text') {
       ctx.font      = `${s.fs}px Outfit, sans-serif`;
       ctx.fillStyle = s.color;
-      ctx.textAlign = 'left';
+      ctx.textAlign = s.align || 'left';
+      ctx.textBaseline = s.baseline || 'alphabetic';
       ctx.fillText(s.text, s.x, s.y);
+      ctx.textAlign    = 'left';
+      ctx.textBaseline = 'alphabetic';
     } else {
       drawShape(ctx, s.type, s.x1, s.y1, s.x2, s.y2, s.color, s.sw);
     }

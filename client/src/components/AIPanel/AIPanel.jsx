@@ -41,6 +41,58 @@ function analyzeStrokes(strokes) {
 
 function rnd(n) { return Math.random() * n; }
 
+// ── Convert diagram JSON → persistent stroke objects ──────────
+// These strokes are saved in the board's elements array so the diagram
+// survives page refresh and new-tab loads.
+function diagramToStrokes(diagram, cw, ch) {
+  const nodes = (diagram.nodes || []).slice(0, 8);
+  const edges = diagram.edges || [];
+  if (!nodes.length) return [];
+
+  const NODE_W = 180, NODE_H = 48, DESIRED_GAP = 120;
+  const nodeCount = nodes.length;
+  const availH    = ch - 40;
+  const effectiveGAP = nodeCount > 1
+    ? Math.max(20, Math.min(DESIRED_GAP, (availH - nodeCount * NODE_H) / (nodeCount - 1)))
+    : DESIRED_GAP;
+  const totalH = nodeCount * NODE_H + (nodeCount - 1) * effectiveGAP;
+  const startX = cw / 2;
+  const startY = Math.max(NODE_H / 2 + 20, (ch - totalH) / 2 + NODE_H / 2);
+
+  const laid = nodes.map((n, i) => ({
+    ...n, _x: startX, _y: startY + i * (NODE_H + effectiveGAP),
+  }));
+  const nodeMap = {};
+  laid.forEach(n => { nodeMap[n.id] = n; });
+
+  const strokes = [];
+
+  laid.forEach(n => {
+    const clr   = n.color || '#7c6ef5';
+    const label = (n.label || n.id).length > 22
+      ? (n.label || n.id).slice(0, 22) + '…' : (n.label || n.id);
+    // Node box
+    strokes.push({ type:'rect', x1: n._x - NODE_W/2, y1: n._y - NODE_H/2,
+                                x2: n._x + NODE_W/2, y2: n._y + NODE_H/2,
+                   color: clr, sw: 2 });
+    // Centred label
+    strokes.push({ type:'text', x: n._x, y: n._y + 4, text: label,
+                   color:'#e8e8f0', sw: 2, fs: 12,
+                   align:'center', baseline:'middle' });
+  });
+
+  edges.forEach(e => {
+    const from = nodeMap[e.from], to = nodeMap[e.to];
+    if (!from || !to) return;
+    strokes.push({ type:'arrow',
+                   x1: from._x, y1: from._y + NODE_H / 2,
+                   x2: to._x,   y2: to._y   - NODE_H / 2,
+                   color:'#7c6ef5', sw: 2 });
+  });
+
+  return strokes;
+}
+
 // ── Draw diagram onto canvas ──────────────────────────────────
 function renderDiagramOnCanvas(diagram) {
   const canvas = document.querySelector('.canvas-transform canvas')
@@ -200,7 +252,7 @@ function renderDiagramOnCanvas(diagram) {
   console.log('Diagram drawn successfully!');
 }
 
-export default function AIPanel({ strokes, boardId, onSnapMessage }) {
+export default function AIPanel({ strokes, boardId, onSnapMessage, onDiagramStrokes }) {
   const [recResults,  setRecResults]  = useState(null);
   const [recLoading,  setRecLoading]  = useState(false);
   const [tasks,       setTasks]       = useState(null);
@@ -255,9 +307,19 @@ export default function AIPanel({ strokes, boardId, onSnapMessage }) {
       const { data } = await api.post('/ai/diagram', { prompt: nlpText });
       console.log('API response:', data);
       if (data.diagram) {
-        // Defer past React's batched state-update re-renders so any canvas
-        // clear in Whiteboard's useEffect runs before we draw, not after.
         const diag = data.diagram;
+
+        // Persist diagram as stroke objects so it survives page refresh / new tab
+        const canvas = document.querySelector('.canvas-transform canvas')
+                     || document.querySelector('.canvas-wrap canvas')
+                     || document.querySelector('canvas');
+        if (onDiagramStrokes && canvas) {
+          const diagStrokes = diagramToStrokes(diag, canvas.width, canvas.height);
+          if (diagStrokes.length) onDiagramStrokes(diagStrokes);
+        }
+
+        // Also render the pretty version (filled, rounded, coloured)
+        // Defer past React's batched re-renders so redrawAll runs first
         setTimeout(() => renderDiagramOnCanvas(diag), 0);
         onSnapMessage('✦ Diagram drawn on canvas');
       } else {
@@ -269,7 +331,7 @@ export default function AIPanel({ strokes, boardId, onSnapMessage }) {
     } finally {
       setDiagLoading(false);
     }
-  }, [nlpText, onSnapMessage]);
+  }, [nlpText, onSnapMessage, onDiagramStrokes]);
 
   const [checkedTasks, setCheckedTasks] = useState({});
   const toggleTask = (i) => setCheckedTasks(prev => ({ ...prev, [i]: !prev[i] }));

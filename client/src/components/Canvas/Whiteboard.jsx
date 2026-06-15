@@ -164,6 +164,11 @@ export default function Whiteboard() {
     }, zoom, pan);
   }, [endDraw, emitStroke, emitShape, zoom, pan]);
 
+  // Add each diagram stroke to the canvas & strokes array so it persists
+  const handleDiagramStrokes = useCallback((diagStrokes) => {
+    diagStrokes.forEach(s => addRemoteStroke(s));
+  }, [addRemoteStroke]);
+
   const handleUndo  = () => { undo(); emitUndo(); };
   const handleClear = () => {
     if (!window.confirm('Clear the board for everyone?')) return;
@@ -260,7 +265,8 @@ export default function Whiteboard() {
           </div>
         </div>
 
-        <AIPanel strokes={strokes} boardId={id} onSnapMessage={flashSnap} />
+        <AIPanel strokes={strokes} boardId={id} onSnapMessage={flashSnap}
+                 onDiagramStrokes={handleDiagramStrokes} />
       </div>
 
       <StatusBar tool={tool} strokeCount={strokes.length} onlineCount={onlineUsers.length || 1} />
