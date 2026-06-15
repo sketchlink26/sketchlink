@@ -160,7 +160,7 @@ const exportToTrello = async (req, res, next) => {
       }
     }
 
-    res.json({ success: true, boardUrl: `https://trello.com/b/${trelloBoard.shortLink}` });
+    res.json({ success: true, boardUrl: trelloBoard.url || trelloBoard.shortUrl || `https://trello.com/b/${trelloBoard.id}` });
   } catch (err) {
     console.error('Trello export error:', err.message);
     next(err);
