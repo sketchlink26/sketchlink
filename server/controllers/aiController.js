@@ -123,35 +123,40 @@ const exportToTrello = async (req, res, next) => {
     const q = (s) => encodeURIComponent(s ?? '');
 
     // 1 — create board
-    const boardRes = await fetch(
+    const boardRes  = await fetch(
       `https://api.trello.com/1/boards/?name=${q(boardName || 'SketchLink Board')}&key=${q(apiKey)}&token=${q(token)}`,
       { method: 'POST' }
     );
+    const boardText = await boardRes.text();
+    console.log('Trello board status:', boardRes.status);
+    console.log('Trello board response:', boardText);
     if (!boardRes.ok) {
-      const msg = await boardRes.text();
-      return res.status(400).json({ message: `Trello: board creation failed — ${msg}` });
+      return res.status(400).json({ message: `Trello error: ${boardText}` });
     }
-    const trelloBoard = await boardRes.json();
+    const trelloBoard = JSON.parse(boardText);
 
     // 2 — create list inside that board
-    const listRes = await fetch(
+    const listRes  = await fetch(
       `https://api.trello.com/1/lists?name=SketchLink%20Tasks&idBoard=${trelloBoard.id}&key=${q(apiKey)}&token=${q(token)}`,
       { method: 'POST' }
     );
+    const listText = await listRes.text();
+    console.log('Trello list status:', listRes.status);
+    console.log('Trello list response:', listText);
     if (!listRes.ok) {
-      const msg = await listRes.text();
-      return res.status(400).json({ message: `Trello: list creation failed — ${msg}` });
+      return res.status(400).json({ message: `Trello error: ${listText}` });
     }
-    const list = await listRes.json();
+    const list = JSON.parse(listText);
 
     // 3 — one card per task (continue on individual card failures)
     for (const task of tasks) {
-      const cardRes = await fetch(
+      const cardRes  = await fetch(
         `https://api.trello.com/1/cards?name=${q(task.title)}&desc=${q(`Priority: ${task.priority} | Category: ${task.category}`)}&idList=${list.id}&key=${q(apiKey)}&token=${q(token)}`,
         { method: 'POST' }
       );
       if (!cardRes.ok) {
-        console.warn(`[Trello] card skipped for: ${task.title}`);
+        const cardText = await cardRes.text();
+        console.warn(`[Trello] card skipped — status: ${cardRes.status} | task: ${task.title} | response: ${cardText}`);
       }
     }
 
