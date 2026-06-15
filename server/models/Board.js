@@ -7,10 +7,12 @@ const ElementSchema = new mongoose.Schema({
   sw:     { type: Number, default: 2 },
   // pen strokes
   path:   [{ x: Number, y: Number }],
-  // shape bounds
+  // shape bounds (also used as arrow endpoints)
   x1: Number, y1: Number, x2: Number, y2: Number,
-  // text
-  text: String, fontSize: Number,
+  // text position — client stores these as x/y (not x1/y1)
+  x: Number, y: Number,
+  // text content and style
+  text: String, fs: Number, align: String, baseline: String,
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now },
 }, { _id: true });

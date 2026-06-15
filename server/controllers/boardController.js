@@ -37,6 +37,7 @@ const createBoard = async (req, res, next) => {
 const getBoardById = async (req, res, next) => {
   try {
     const board = await Board.findById(req.params.id)
+      .select('+elements')
       .populate('owner', 'name email')
       .populate('collaborators.user', 'name email');
 
@@ -64,6 +65,7 @@ const getBoardById = async (req, res, next) => {
 const getBoardByShareCode = async (req, res, next) => {
   try {
     const board = await Board.findOne({ shareCode: req.params.code })
+      .select('+elements')
       .populate('owner', 'name email');
 
     if (!board) {

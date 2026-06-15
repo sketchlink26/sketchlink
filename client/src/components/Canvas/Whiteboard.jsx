@@ -67,6 +67,12 @@ export default function Whiteboard() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Replay saved strokes onto the canvas once board data arrives
+  useEffect(() => {
+    if (!board?.elements?.length) return;
+    board.elements.forEach(el => addRemoteStroke(el));
+  }, [board, addRemoteStroke]);
+
   // Auto-save
   useEffect(() => {
     const interval = setInterval(() => {
