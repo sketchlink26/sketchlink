@@ -6,6 +6,7 @@ import Register    from './components/Auth/Register';
 import Dashboard   from './components/Dashboard/Dashboard';
 import Whiteboard  from './components/Canvas/Whiteboard';
 import Landing     from './components/Landing/Landing';
+import JoinBoard   from './components/JoinBoard/JoinBoard';
 import './App.css';
 
 // Protected route wrapper
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/register"    element={<Register />} />
           <Route path="/dashboard"   element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/board/:id"   element={<PrivateRoute><Whiteboard /></PrivateRoute>} />
+          <Route path="/join/:code"  element={<PrivateRoute><JoinBoard /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

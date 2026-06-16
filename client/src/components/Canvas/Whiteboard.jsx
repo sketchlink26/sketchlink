@@ -260,6 +260,7 @@ export default function Whiteboard() {
         onExport={exportPNG}
         onBack={() => navigate('/dashboard')}
         boardId={id}
+        shareCode={board?.shareCode}
         onUndo={handleUndo}
         onChatToggle={toggleChat}
         showChat={showChat}
