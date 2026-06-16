@@ -131,6 +131,7 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
 
   // Returns true if canvas point (px, py) is inside/near stroke s
   const hitTest = (s, px, py) => {
+    console.log('hitTest checking stroke:', s.type, 'at', px, py);
     if (s.type === 'pen') {
       return s.path.some(p => Math.hypot(p.x - px, p.y - py) < 10);
     }
@@ -146,6 +147,8 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
   };
 
   const startDraw = useCallback((e) => {
+    console.log('startDraw called, tool:', tool);
+    console.log('strokes count:', strokesRef.current.length);
     if (!ctxRef.current || !canvasRef.current) return;
     const p = getPos(e);
 

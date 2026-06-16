@@ -91,9 +91,12 @@ export default function Dashboard() {
 
   const joinBoard = async () => {
     if (shareCode.length !== 6) return;
+    console.log('joinBoard called with code:', shareCode);
     setJoining(true);
     try {
       const { data } = await api.get(`/boards/share/${shareCode.trim().toUpperCase()}`);
+      console.log('API response:', data);
+      console.log('navigating to:', `/board/${data.board._id}`);
       setShareCode('');
       navigate(`/board/${data.board._id}`);
     } catch {
