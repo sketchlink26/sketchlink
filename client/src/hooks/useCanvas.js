@@ -159,9 +159,9 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
 
       for (let i = allStrokes.length - 1; i >= 0; i--) {
         const s = allStrokes[i];
-        console.log('[SELECT] checking stroke', i, s.type, s.x1, s.y1, s.x2, s.y2);
+        console.log('[SELECT] checking stroke', i, s.type);
         if (hitTest(s, p.x, p.y)) {
-          console.log('[SELECT] HIT stroke', i);
+          console.log('[SELECT] HIT stroke', i, s.type);
           isDragging.current  = true;
           dragIndex.current   = i;
           lastDragPos.current = { x: p.x, y: p.y };
@@ -169,7 +169,7 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
           return;
         }
       }
-      console.log('[SELECT] no hit found');
+      console.log('[SELECT] no hit found at', p.x, p.y);
       return;
     }
 
