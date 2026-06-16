@@ -131,19 +131,20 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
 
   // Returns true if canvas point (px, py) is inside/near stroke s
   const hitTest = (s, px, py) => {
-    console.log('hitTest checking stroke:', s.type, 'at', px, py);
-    if (s.type === 'pen') {
-      return s.path.some(p => Math.hypot(p.x - px, p.y - py) < 10);
+    if (s.type === 'rect' || s.type === 'circle' || s.type === 'diamond' || s.type === 'arrow') {
+      const minX = Math.min(s.x1, s.x2) - 10;
+      const maxX = Math.max(s.x1, s.x2) + 10;
+      const minY = Math.min(s.y1, s.y2) - 10;
+      const maxY = Math.max(s.y1, s.y2) + 10;
+      return px >= minX && px <= maxX && py >= minY && py <= maxY;
     }
     if (s.type === 'text') {
-      return Math.abs(s.x - px) < 80 && Math.abs(s.y - py) < 20;
+      return px >= s.x - 10 && px <= s.x + 200 && py >= s.y - 30 && py <= s.y + 10;
     }
-    // rect, circle, diamond, arrow — all use bounding box
-    const minX = Math.min(s.x1, s.x2);
-    const maxX = Math.max(s.x1, s.x2);
-    const minY = Math.min(s.y1, s.y2);
-    const maxY = Math.max(s.y1, s.y2);
-    return px >= minX && px <= maxX && py >= minY && py <= maxY;
+    if (s.type === 'pen') {
+      return s.path?.some(pt => Math.abs(pt.x - px) < 15 && Math.abs(pt.y - py) < 15);
+    }
+    return false;
   };
 
   const startDraw = useCallback((e) => {
@@ -153,18 +154,23 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     const p = getPos(e);
 
     if (tool === 'select') {
-      // Find the topmost stroke under the cursor (reverse = top-of-stack first)
-      const list = strokesRef.current;
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (hitTest(list[i], p.x, p.y)) {
+      const allStrokes = strokesRef.current;
+      console.log('[SELECT] strokes available:', allStrokes.length);
+
+      for (let i = allStrokes.length - 1; i >= 0; i--) {
+        const s = allStrokes[i];
+        console.log('[SELECT] checking stroke', i, s.type, s.x1, s.y1, s.x2, s.y2);
+        if (hitTest(s, p.x, p.y)) {
+          console.log('[SELECT] HIT stroke', i);
           isDragging.current  = true;
           dragIndex.current   = i;
-          lastDragPos.current = p;
+          lastDragPos.current = { x: p.x, y: p.y };
           setIsDraggingElement(true);
           return;
         }
       }
-      return; // nothing hit — do nothing
+      console.log('[SELECT] no hit found');
+      return;
     }
 
     drawing.current  = true;
@@ -187,23 +193,23 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
   const midDraw = useCallback((e) => {
     const p = getPos(e);
 
-    if (isDragging.current) {
+    if (isDragging.current && dragIndex.current !== null) {
+      const s = strokesRef.current[dragIndex.current];
+      if (!s) return;
       const dx = p.x - lastDragPos.current.x;
       const dy = p.y - lastDragPos.current.y;
-      const s  = strokesRef.current[dragIndex.current];
-      if (s) {
-        if (s.type === 'pen') {
-          s.path.forEach(pt => { pt.x += dx; pt.y += dy; });
-        } else if (s.type === 'text') {
-          s.x += dx;
-          s.y += dy;
-        } else {
-          s.x1 += dx; s.y1 += dy;
-          s.x2 += dx; s.y2 += dy;
-        }
-        lastDragPos.current = p;
-        redrawAll(ctxRef.current, strokesRef.current);
+
+      if (s.type === 'pen') {
+        s.path = s.path.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+      } else if (s.type === 'text') {
+        s.x += dx;
+        s.y += dy;
+      } else {
+        s.x1 += dx; s.y1 += dy;
+        s.x2 += dx; s.y2 += dy;
       }
+      lastDragPos.current = { x: p.x, y: p.y };
+      redrawAll(ctxRef.current, strokesRef.current);
       return;
     }
 
