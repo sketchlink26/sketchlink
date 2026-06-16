@@ -61,18 +61,32 @@ const getBoardById = async (req, res, next) => {
   }
 };
 
-// GET /api/boards/share/:code  — join by share code
+// GET /api/boards/share/:code  — join by share code, auto-adds requester as collaborator
 const getBoardByShareCode = async (req, res, next) => {
   try {
-    const board = await Board.findOne({ shareCode: req.params.code })
-      .select('+elements')
-      .populate('owner', 'name email');
+    const board = await Board.findOne({ shareCode: req.params.code });
 
     if (!board) {
       return res.status(404).json({ message: 'Board not found' });
     }
 
-    res.json({ board });
+    const isOwner      = board.owner.toString() === req.user._id.toString();
+    const alreadyCollab = board.collaborators.some(
+      c => c.user.toString() === req.user._id.toString()
+    );
+
+    if (!isOwner && !alreadyCollab) {
+      board.collaborators.push({ user: req.user._id, role: 'editor' });
+      await board.save();
+    }
+
+    // Re-fetch with full population so client gets owner/collaborator names
+    const populated = await Board.findById(board._id)
+      .select('+elements')
+      .populate('owner', 'name email')
+      .populate('collaborators.user', 'name email');
+
+    res.json({ board: populated });
   } catch (err) {
     next(err);
   }

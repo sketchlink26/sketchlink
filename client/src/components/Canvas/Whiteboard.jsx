@@ -54,6 +54,7 @@ export default function Whiteboard() {
     startDraw, midDraw, endDraw,
     addText, addRemoteStroke,
     undo, clear, exportPNG,
+    isDraggingElement,
   } = useCanvas(tool, color, strokeWidth, zoom);
 
   const { emitStroke, emitShape, emitCursor, emitClear, emitUndo, emitChatMessage, emitTyping } = useSocket(id, user, {
@@ -119,6 +120,7 @@ export default function Whiteboard() {
       if (e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true') return;
       if (e.code === 'Space') { spaceDown.current = true; e.preventDefault(); return; }
       const k = e.key.toLowerCase();
+      if (k === 'v') setTool('select');
       if (k === 'p') setTool('pen');
       if (k === 'e') setTool('eraser');
       if (k === 'r') setTool('rect');
@@ -224,7 +226,7 @@ export default function Whiteboard() {
 
   const getCursor = () => {
     if (spaceDown.current) return isPanning.current ? 'grabbing' : 'grab';
-    if (tool === 'select') return 'default';
+    if (tool === 'select') return isDraggingElement ? 'grabbing' : 'default';
     if (tool === 'eraser') return 'cell';
     if (tool === 'text')   return 'text';
     return 'crosshair';

@@ -94,6 +94,7 @@ export default function Dashboard() {
     setJoining(true);
     try {
       const { data } = await api.get(`/boards/share/${shareCode.trim().toUpperCase()}`);
+      setShareCode('');
       navigate(`/board/${data.board._id}`);
     } catch {
       alert('Board not found. Check the share code and try again.');

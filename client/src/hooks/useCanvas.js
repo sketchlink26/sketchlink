@@ -10,14 +10,17 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
   const [strokes, setStrokes] = useState([]);
   const strokesRef = useRef([]);
 
-  // Keep a ref so getPos always reads the current zoom without stale closures
+  // Drag state
+  const isDragging   = useRef(false);
+  const dragIndex    = useRef(-1);
+  const lastDragPos  = useRef({ x: 0, y: 0 });
+  const [isDraggingElement, setIsDraggingElement] = useState(false);
+
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
-  // Sync strokes ref with state
   useEffect(() => { strokesRef.current = strokes; }, [strokes]);
 
-  // Init canvas on mount and resize
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -26,9 +29,6 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     ctxRef.current = ctx;
 
     const resize = () => {
-      // Read the actual rendered dimensions of the canvas element so the
-      // drawing buffer always matches what CSS lays out (no coordinate skew).
-      // Falls back to a calculated size if CSS hasn't painted yet.
       const w = canvas.offsetWidth  || (window.innerWidth  - 320);
       const h = canvas.offsetHeight || (window.innerHeight - 76);
       canvas.width  = w;
@@ -37,7 +37,6 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     };
 
     const t1 = setTimeout(resize, 50);
-    // Retry at 300 ms in case the CSS layout wasn't ready at 50 ms (production)
     const t2 = setTimeout(resize, 300);
     window.addEventListener('resize', resize);
     return () => {
@@ -54,13 +53,7 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
     const scaleX = r.width  > 0 ? canvas.width  / r.width  : 1;
     const scaleY = r.height > 0 ? canvas.height / r.height : 1;
-    const pos = { x: (cx - r.left) * scaleX, y: (cy - r.top) * scaleY };
-    console.log('[getPos] rect:', r.left.toFixed(0), r.top.toFixed(0),
-      r.width.toFixed(0), r.height.toFixed(0),
-      '| buf:', canvas.width, canvas.height,
-      '| scale:', scaleX.toFixed(3), scaleY.toFixed(3),
-      '| pos:', pos.x.toFixed(0), pos.y.toFixed(0));
-    return pos;
+    return { x: (cx - r.left) * scaleX, y: (cy - r.top) * scaleY };
   };
 
   const redrawAll = (ctx, stks) => {
@@ -84,9 +77,9 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
       s.path.forEach(p => ctx.lineTo(p.x, p.y));
       ctx.stroke();
     } else if (s.type === 'text') {
-      ctx.font      = `${s.fs}px Outfit, sans-serif`;
-      ctx.fillStyle = s.color;
-      ctx.textAlign = s.align || 'left';
+      ctx.font         = `${s.fs}px Outfit, sans-serif`;
+      ctx.fillStyle    = s.color;
+      ctx.textAlign    = s.align    || 'left';
       ctx.textBaseline = s.baseline || 'alphabetic';
       ctx.fillText(s.text, s.x, s.y);
       ctx.textAlign    = 'left';
@@ -136,17 +129,42 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     }
   };
 
-  const startDraw = useCallback((e) => {
-    console.log('[startDraw] called | ctxRef:', !!ctxRef.current,
-      '| canvasRef:', !!canvasRef.current,
-      '| tool:', tool,
-      '| canvas size:', canvasRef.current?.width, 'x', canvasRef.current?.height);
-    if (!ctxRef.current || !canvasRef.current) {
-      console.warn('[startDraw] BLOCKED — ctx or canvas is null (canvas not yet initialised)');
-      return;
+  // Returns true if canvas point (px, py) is inside/near stroke s
+  const hitTest = (s, px, py) => {
+    if (s.type === 'pen') {
+      return s.path.some(p => Math.hypot(p.x - px, p.y - py) < 10);
     }
+    if (s.type === 'text') {
+      return Math.abs(s.x - px) < 80 && Math.abs(s.y - py) < 20;
+    }
+    // rect, circle, diamond, arrow — all use bounding box
+    const minX = Math.min(s.x1, s.x2);
+    const maxX = Math.max(s.x1, s.x2);
+    const minY = Math.min(s.y1, s.y2);
+    const maxY = Math.max(s.y1, s.y2);
+    return px >= minX && px <= maxX && py >= minY && py <= maxY;
+  };
+
+  const startDraw = useCallback((e) => {
+    if (!ctxRef.current || !canvasRef.current) return;
+    const p = getPos(e);
+
+    if (tool === 'select') {
+      // Find the topmost stroke under the cursor (reverse = top-of-stack first)
+      const list = strokesRef.current;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (hitTest(list[i], p.x, p.y)) {
+          isDragging.current  = true;
+          dragIndex.current   = i;
+          lastDragPos.current = p;
+          setIsDraggingElement(true);
+          return;
+        }
+      }
+      return; // nothing hit — do nothing
+    }
+
     drawing.current  = true;
-    const p          = getPos(e);
     startPos.current = p;
     curPath.current  = [p];
     snapshot.current = ctxRef.current.getImageData(
@@ -164,8 +182,29 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
   }, [tool, color, strokeWidth]);
 
   const midDraw = useCallback((e) => {
+    const p = getPos(e);
+
+    if (isDragging.current) {
+      const dx = p.x - lastDragPos.current.x;
+      const dy = p.y - lastDragPos.current.y;
+      const s  = strokesRef.current[dragIndex.current];
+      if (s) {
+        if (s.type === 'pen') {
+          s.path.forEach(pt => { pt.x += dx; pt.y += dy; });
+        } else if (s.type === 'text') {
+          s.x += dx;
+          s.y += dy;
+        } else {
+          s.x1 += dx; s.y1 += dy;
+          s.x2 += dx; s.y2 += dy;
+        }
+        lastDragPos.current = p;
+        redrawAll(ctxRef.current, strokesRef.current);
+      }
+      return;
+    }
+
     if (!drawing.current || !ctxRef.current) return;
-    const p  = getPos(e);
     curPath.current.push(p);
     const { x: sx, y: sy } = startPos.current;
 
@@ -181,6 +220,15 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
   }, [tool, color, strokeWidth]);
 
   const endDraw = useCallback((e, onStrokeEnd) => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      dragIndex.current  = -1;
+      setIsDraggingElement(false);
+      // Sync React state with the in-place mutations from drag
+      setStrokes([...strokesRef.current]);
+      return;
+    }
+
     if (!drawing.current) return;
     drawing.current = false;
 
@@ -191,8 +239,6 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
 
     if (tool === 'pen' && curPath.current.length > 1) {
       newStroke = { type:'pen', path:[...curPath.current], color, sw: strokeWidth };
-    } else if (tool === 'select') {
-      // Select tool: no stroke produced, future use for element selection
     } else if (['rect','circle','arrow','diamond'].includes(tool)) {
       newStroke = { type:tool, x1:sx, y1:sy, x2:last.x, y2:last.y, color, sw: strokeWidth };
     }
@@ -262,5 +308,6 @@ export default function useCanvas(tool, color, strokeWidth, zoom = 1) {
     undo,
     clear,
     exportPNG,
+    isDraggingElement,
   };
 }
