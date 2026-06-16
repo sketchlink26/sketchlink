@@ -82,7 +82,6 @@ const getBoardByShareCode = async (req, res, next) => {
 
     // Re-fetch with full population so client gets owner/collaborator names
     const populated = await Board.findById(board._id)
-      .select('+elements')
       .populate('owner', 'name email')
       .populate('collaborators.user', 'name email');
 
