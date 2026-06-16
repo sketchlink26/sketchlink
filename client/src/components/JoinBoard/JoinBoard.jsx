@@ -7,11 +7,16 @@ export default function JoinBoard() {
   const navigate   = useNavigate();
 
   useEffect(() => {
+    console.log('JoinBoard mounted, code:', code);
+    console.log('Calling API:', '/boards/share/' + code);
     api.get(`/boards/share/${code}`)
       .then(({ data }) => {
+        console.log('JoinBoard API response:', data);
+        console.log('Board ID:', data.board?._id);
         navigate(`/board/${data.board._id}`, { replace: true });
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('JoinBoard error:', err);
         navigate('/dashboard', { replace: true });
       });
   }, [code]);

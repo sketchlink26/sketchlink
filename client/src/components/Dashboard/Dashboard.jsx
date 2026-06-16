@@ -91,12 +91,14 @@ export default function Dashboard() {
 
   const joinBoard = async () => {
     if (shareCode.length !== 6) return;
+    console.log('joinBoard called, code:', shareCode);
     setJoining(true);
     try {
-      const { data } = await api.get(`/boards/share/${shareCode}`);
-      console.log('Join board response:', data);
-      if (data.board && data.board._id) {
-        navigate(`/board/${data.board._id}`);
+      const response = await api.get('/boards/share/' + shareCode);
+      console.log('Response:', response.data);
+      console.log('Board ID:', response.data.board?._id);
+      if (response.data.board && response.data.board._id) {
+        navigate(`/board/${response.data.board._id}`);
       } else {
         alert('Board not found');
       }
